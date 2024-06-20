@@ -1,0 +1,755 @@
+Purpose: import and construct Seurat objects for CD11b- cells
+
+# Import libraries
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+
+library(ggbeeswarm)
+library(ggprism)
+
+# Import data
+so.1.data <- Read10X("/data/lippmann_lab/10399-AK/10399-AK-1_S1_L005_results/filtered_matrix/sensitivity_5")
+so.1 <- CreateSeuratObject(counts = so.1.data, min.cells = 3, min.features = 200)
+so.1$orig.ident <- 'LUC1_CD11B_neg'
+rm(so.1.data)
+
+so.2.data <- Read10X("/data/lippmann_lab/10332-AK/10332-AK-0002_S1_L005_results/filtered_matrix/sensitivity_5")
+so.2 <- CreateSeuratObject(counts = so.2.data, min.cells = 3, min.features = 200)
+so.2$orig.ident <- 'LUC2_CD11B_neg'
+rm(so.2.data)
+
+so.3.data <- Read10X("/data/lippmann_lab/10332-AK/10332-AK-0003_S1_L005_results/filtered_matrix/sensitivity_5")
+so.3 <- CreateSeuratObject(counts = so.3.data, min.cells = 3, min.features = 200)
+so.3$orig.ident <- 'LUC3_CD11B_neg'
+rm(so.3.data)
+
+so.4.data <- Read10X("/data/lippmann_lab/10332-AK/10332-AK-0004_S1_L005_results/filtered_matrix/sensitivity_5")
+so.4 <- CreateSeuratObject(counts = so.4.data, min.cells = 3, min.features = 200)
+so.4$orig.ident <- 'PPIB1_CD11B_neg'
+rm(so.4.data)
+
+so.5.data <- Read10X("/data/lippmann_lab/10332-AK/10332-AK-0005_S1_L005_results/filtered_matrix/sensitivity_5")
+so.5 <- CreateSeuratObject(counts = so.5.data, min.cells = 3, min.features = 200)
+so.5$orig.ident <- 'PPIB2_CD11B_neg'
+rm(so.5.data)
+
+so.6.data <- Read10X("/data/lippmann_lab/10332-AK/10332-AK-0006_S1_L005_results/filtered_matrix/sensitivity_5")
+so.6 <- CreateSeuratObject(counts = so.6.data, min.cells = 3, min.features = 200)
+so.6$orig.ident <- 'PPIB3_CD11B_neg'
+rm(so.6.data)
+
+# Merge datasets
+so.combined <- merge(so.1, y = c(so.2, so.3, so.4, so.5, so.6))
+
+# Do initial filtering based on mitochondrial percentage and number of features
+so.combined[["percent.mt"]] <- PercentageFeatureSet(so.combined, pattern = "^mt-")
+so.combined <- subset(so.combined, subset = nFeature_RNA > 800 & nFeature_RNA < 10000)
+so.combined <- subset(so.combined, subset = percent.mt < 25)
+
+# Visualize QC metrics
+VlnPlot(so.combined, features = c('nCount_RNA','nFeature_RNA','percent.mt'), group.by = 'orig.ident', pt.size = 0)
+
+# Print number of cells
+table(so.combined$orig.ident)
+
+# Process data, do dimension reduction
+so.combined <- NormalizeData(so.combined)
+so.combined <- FindVariableFeatures(so.combined, selection.method = "vst", nfeatures = 2000)
+so.combined <- ScaleData(so.combined, verbose = FALSE)
+so.combined <- RunPCA(so.combined, npcs = 50, verbose = FALSE)
+so.combined <- RunUMAP(so.combined, reduction = "pca", dims = 1:50)
+so.combined <- FindNeighbors(so.combined, reduction = "pca", dims = 1:50)
+so.combined <- FindClusters(so.combined, resolution = 1)
+
+# Save in sample metadata
+so.combined$siRNA <- so.combined$orig.ident
+so.combined$siRNA <- recode(so.combined$siRNA,
+                            "LUC1_CD11B_neg" = "LUC",
+                            "LUC2_CD11B_neg" = "LUC",
+                            "LUC3_CD11B_neg" = "LUC",
+                            "PPIB1_CD11B_neg" = "PPIB",
+                            "PPIB2_CD11B_neg" = "PPIB",
+                            "PPIB3_CD11B_neg" = "PPIB")
+
+# Annotate cells
+so.combined$cell_type <- so.combined$seurat_clusters
+so.combined$cell_type <- recode(so.combined$cell_type,
+                                "0" = "Choroid plexus epithelial cells",
+                                "1" = "Ependymal cells",
+                                "2" = "Endothelial cells (Venous / Capillary)",
+                                "3" = "Ependymal cells",
+                                "4" = "Oligodendrocytes",
+                                "5" = "Bergmann glia",
+                                "6" = "Astrocytes",
+                                "7" = "Oligodendrocytes",
+                                "8" = "Choroid plexus epithelial cells",
+                                "9" = "Choroid plexus epithelial cells",
+                                "10" = "Endothelial cells (Arterial)",
+                                "11" = "Fibroblasts (Dural)",
+                                "12" = "Astrocytes",
+                                "13" = "Neural IPCs",
+                                "14" = "Astrocytes",
+                                "15" = "Oligodendrocytes",
+                                "16" = "Smooth muscle cells",
+                                "17" = "Endothelial cells / Pericytes",
+                                "18" = "Oligodendrocytes",
+                                "19" = "Olfactory ensheathing cells",
+                                "20" = "Fibroblasts (Arachnoid)",
+                                "21" = "Oligodendrocytes",
+                                "22" = "Unknown",
+                                "23" = "Unknown",
+                                "24" = "Unknown",
+                                "25" = "Oligodendrocytes",
+                                "26" = "Choroid plexus epithelial cells",
+                                "27" = "Neurons",
+                                "28" = "Unknown",
+                                "29" = "Ependymal cells",
+                                "30" = "Microglia",
+                                "31" = "Unknown",
+                                "32" = "Neurons",
+                                "33" = "Ependymal cells",
+                                "34" = "Ependymal cells",
+                                "35" = "Neurons")
+
+sample_levels <- c('Smooth muscle cells','Endothelial cells / Pericytes','Endothelial cells (Arterial)','Endothelial cells (Venous / Capillary)','Choroid plexus epithelial cells','Ependymal cells','Fibroblasts (Dural)','Fibroblasts (Arachnoid)','Olfactory ensheathing cells','Oligodendrocytes','Astrocytes','Bergmann glia','Neural IPCs','Neurons','Microglia','Unknown')
+so.combined$cell_type <- factor(x = so.combined$cell_type, levels = sample_levels)
+
+# Save RDS
+saveRDS(so.combined, "2023.08.31_so.combined_AK_10332_10339.RDS")
+
+# Visualize cell markers, dimension reduction, and PPIB levels
+pdf("2023.08.31_DotPlot_markers_AK_10332_10339.pdf", height = 8, width = 15)
+DotPlot(so.combined, group.by = 'cell_type', features = c('Acta2','Mustn1','Tagln','Myh11','Ly6c1','Cldn5','Ly6a','Pltp','Flt1','Degs2','Kcnj8','Higd1b','Rgs5','Hey1','Bmx','Sema3g','Slc16a2','Car4','Mfsd2a','Icam1','Slc38a5','Vwf','Ttr','Folr1','Clicb','Kl','Ccdc153','Tmem212','Hdc','Dynlrb2','Dcn','Col1a1','Pdgfrb','Crabp2','Fxyd5','Foxp1','Six1','S100a6','Ngfr','Aldh1a2','SLc6a13')) + 
+        scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1") + theme(axis.text.x = element_text(angle = 90))
+DotPlot(so.combined, group.by = 'cell_type', features = c('Prss56','Clca3a1','Fabp7','Frzb','Opalin','Ninj2','Mal','Mog','Hapln2','Docks','Anln','Gjb1','Fam107a','Cbs','Mlc1','Ntsr2','Slc7a11','Fgfr3','Agt','Slc6a11','Gldc','Slc13a3','Islr','Gdf10','Timp4','Hopx','Id4','2810417H13Rik','Cdca7','Rrm2','Ube2c','Top2a','Birc5','Map2','NeuN','Snap25','Slc17a7','Gad2','Reln','Itgam','Trem2')) + 
+        scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1")  + theme(axis.text.x = element_text(angle = 90))
+
+pdf("2023.08.31_DimPlot_AK_10332_10339.pdf", width = 11, height = 8)
+DimPlot(subset(so.combined, cell_type != 'Unknown'), group.by = 'cell_type')
+
+pdf("2023.08.31_DimPlot_clusters_AK_10332_10339.pdf", width = 10, height = 8)
+DimPlot(so.combined)
+DimPlot(so.combined, group.by = 'siRNA', cols = c('gray','black'))
+
+pdf("2023.08.31_PPIB_average_expression_10332_1039.pdf", width = 3, height = 4)
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Ependymal cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Ependymal cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Ependymal cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Oligodendrocytes'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Oligodendrocytes') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Oligodendrocytes_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Olfactory ensheathing cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Olfactory ensheathing cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Olfactory ensheathing cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Bergmann glia'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Bergmann glia') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Bergmann glia_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Choroid plexus epithelial cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Choroid plexus epithelial cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Choroid plexus epithelial cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Neural IPCs'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Neural IPCs') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Neural IPCs_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Astrocytes'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Astrocytes') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Astrocytes_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Smooth muscle cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Smooth muscle cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Smooth muscle cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Neurons'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Neurons') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Neurons_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Endothelial cells (Arterial)'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Endothelial cells (Arterial)') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells (Arterial)_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Endothelial cells (Venous / Capillary)'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Endothelial cells (Venous / Capillary)') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells (Venous_Capillary)_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Endothelial cells / Pericytes'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Endothelial cells / Pericytes') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_pericytes_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Fibroblasts (Dural)'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Fibroblasts (Dural)') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_fibroblasts_dural_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Fibroblasts (Arachnoid)'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Fibroblasts (Arachnoid)') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_fibroblasts_arachnoid_levels.csv")
+
+# Full dataset knockdown rate
+PPIB_levels <- AverageExpression(so.combined, group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('CD11B- cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_CD11B-.csv")
+
+# Print number of each cell type
+table(so.combined$cell_type)
+
+# Subset and recluster endothelial cells
+so.ECs <- subset(so.combined, cell_type %in% c('Endothelial cells (Arterial)','Endothelial cells (Venous / Capillary)','Endothelial cells / Pericytes'))
+
+# Process data, do dimension reduction
+so.ECs <- NormalizeData(so.ECs)
+so.ECs <- FindVariableFeatures(so.ECs, selection.method = "vst", nfeatures = 2000)
+so.ECs <- ScaleData(so.ECs, verbose = FALSE)
+so.ECs <- RunPCA(so.ECs, npcs = 50, verbose = FALSE)
+so.ECs <- RunUMAP(so.ECs, reduction = "pca", dims = 1:50)
+so.ECs <- FindNeighbors(so.ECs, reduction = "pca", dims = 1:50)
+so.ECs <- FindClusters(so.ECs, resolution = 1)
+
+# Annotate cell identities across arterio-venous tree
+so.ECs$cell_type <- so.ECs$seurat_clusters
+so.ECs$cell_type <- recode(so.ECs$cell_type,
+                                "0" = "D",
+                                "1" = "B",
+                                "2" = "E",
+                                "3" = "C",
+                                "4" = "F",
+                                "5" = "other",
+                                "6" = "G",
+                                "7" = "other",
+                                "8" = "other",
+                                "9" = "A",
+                                "10" = "other",
+                                "11" = "other")
+so.ECs$cell_type <- factor(x = so.ECs$cell_type, levels = c('A','B','C','D','E','F','G','other'))
+
+# Visualize
+pdf("2023.08.31_AK_10332_10399_ECs_Feature_Plot.pdf")
+FeaturePlot(so.ECs, features = c('Vwf','Slc38a5','Icam1','Mfsd2a','Car4','Slc16a2','Sema3g','Bmx','Hey1'), order = T)
+FeaturePlot(subset(so.ECs, cell_type %in% c('A','B','C','D','E','F')), features = c('Vwf','Slc38a5','Icam1','Mfsd2a','Car4','Slc16a2','Sema3g','Bmx','Hey1'), order = T)
+
+pdf("2023.08.31_AK_10332_10399_ECs_Dim_Plot.pdf")
+DimPlot(subset(so.ECs, cell_type %in% c('A','B','C','D','E','F')), group.by = 'cell_type')
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'A'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_A.csv")
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'B'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_B.csv")
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'C'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_C.csv")
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'D'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_D.csv")
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'E'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_E.csv")
+
+PPIB_levels <- AverageExpression(subset(so.ECs, cell_type == 'F'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.08.31_Endothelial cells_F.csv")
+
+# Save RDS
+saveRDS(so.ECs, "2023.08.31_so.ECs_AK_10332_10399.RDS")
+
+# Subset fibroblasts for further analysis
+so.fibroblasts <- subset(so.combined, cell_type %in% c('Fibroblasts (Arachnoid)','Fibroblasts (Dural)'))
+
+# Process data, do dimension reduction
+so.fibroblasts <- NormalizeData(so.fibroblasts)
+so.fibroblasts <- FindVariableFeatures(so.fibroblasts, selection.method = "vst", nfeatures = 2000)
+so.fibroblasts <- ScaleData(so.fibroblasts, verbose = FALSE)
+so.fibroblasts <- RunPCA(so.fibroblasts, npcs = 50, verbose = FALSE)
+so.fibroblasts <- RunUMAP(so.fibroblasts, reduction = "pca", dims = 1:50)
+so.fibroblasts <- FindNeighbors(so.fibroblasts, reduction = "pca", dims = 1:50)
+so.fibroblasts <- FindClusters(so.fibroblasts, resolution = 2)
+
+# Annotate cell identities based on fibroblast atlas Pietila 2023
+so.fibroblasts$cell_type <- so.fibroblasts$seurat_clusters
+so.fibroblasts$cell_type <- recode(so.fibroblasts$cell_type,
+                                "0" = "BFB5",
+                                "1" = "BFB5",
+                                "2" = "BFB5",
+                                "3" = "BFB5",
+                                "4" = "BFB5",
+                                "5" = "BFB2/3",
+                                "6" = "BFB6",
+                                "7" = "BFB2",
+                                "8" = "BFB1",
+                                "9" = "BFB4",
+                                "10" = "BFB5",
+                                "11" = "BFB1a",
+                                "12" = "BFB5",
+                                "13" = "BFB5")
+
+so.fibroblasts$cell_name <- so.fibroblasts$seurat_clusters
+so.fibroblasts$cell_name <- recode(so.fibroblasts$cell_name,
+                                "0" = "Dural border cells",
+                                "1" = "Dural border cells",
+                                "2" = "Dural border cells",
+                                "3" = "Dural border cells",
+                                "4" = "Dural border cells",
+                                "5" = "Inner arachnoid cells",
+                                "6" = "Parenchymal perivascular fibroblasts",
+                                "7" = "Inner arachnoid cells",
+                                "8" = "Pial fibroblasts",
+                                "9" = "Arachnoid barrier cells",
+                                "10" = "Dural border cells",
+                                "11" = "Parenchymal perivascular fibroblasts",
+                                "12" = "Dural border cells",
+                                "13" = "Dural border cells")
+
+# Visualize and plot PPIB levels
+pdf("2023.10.27_AK_10332_10399_fibroblasts_Dim_Plot.pdf")
+DimPlot(so.fibroblasts, group.by = 'cell_type')
+DimPlot(so.fibroblasts, group.by = 'cell_type') + NoLegend()
+DimPlot(so.fibroblasts, group.by = 'cell_name')
+DimPlot(so.fibroblasts, group.by = 'cell_name') + NoLegend()
+
+pdf("2023.10.27_AK_10332_10399_fibroblasts_markers_Dot_Plot.pdf", width = 12, height = 5)
+DotPlot(so.fibroblasts, group.by = 'cell_name', features = c('Bglap','Slc47a1','Col1a1','Dpp4','Ppp1r1a','Slc7a11','Lama1','Col15a1','Tcf21'))
+DotPlot(so.fibroblasts, group.by = 'cell_type', features = c('Bglap','Slc47a1','Col1a1','Dpp4','Ppp1r1a','Slc7a11','Lama1','Col15a1','Tcf21'))
+
+pdf("2023.10.27_PPIB_average_expression_10332_1039_fibroblasts.pdf", width = 3, height = 4)
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB1'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB1') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB1_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB1a'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB1a') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB1a_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB2'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB2') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB2_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB2/3'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB2/3') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB2_3_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB4'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB4') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB4_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB5'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB5') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB5_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_type == 'BFB6'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('BFB6') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_BFB6_levels.csv")
+
+pdf("2023.10.27_PPIB_average_expression_10332_1039_fibroblasts_names.pdf", width = 3, height = 4)
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_name == 'Dural border cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Dural border cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_Dural border cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_name == 'Inner arachnoid cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Inner arachnoid cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_Inner arachnoid cells_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_name == 'Parenchymal perivascular fibroblasts'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Parenchymal perivascular fibroblasts') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_Parenchymal perivascular fibroblasts.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_name == 'Pial fibroblasts'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Pial fibroblasts') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_Pial fibroblasts.csv")
+
+PPIB_levels <- AverageExpression(subset(so.fibroblasts, cell_name == 'Arachnoid barrier cells'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,6)) +
+  ggtitle('Arachnoid barrier cells') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2023.10.27_Arachnoid barrier cells.csv")
+
+# Save RDS
+saveRDS(so.fibroblasts, "2023.10.27_so.fibroblasts_AK_10332_10399.RDS")
+
+
+# Compile annotations together
+cell_types <- as.data.frame(so$cell_type)
+cell_types$cell <- rownames(cell_types)
+cell_types$`so$cell_type` <- as.character(cell_types$`so$cell_type`)
+cell_types$number <- 1:nrow(cell_types)
+
+fibroblast_names <- as.data.frame(so.fibroblasts$cell_name)
+fibroblast_names$cell <- rownames(fibroblast_names)
+fibroblast_names$`so.fibroblasts$cell_name` <- as.character(fibroblast_names$`so.fibroblasts$cell_name`)
+
+compiled_names <- merge(fibroblast_names, cell_types, by = 'cell', all.y = T)
+
+compiled_names$name <- compiled_names$`so$cell_type`
+for (i in 1:nrow(compiled_names)) {
+  if(!is.na(compiled_names[i,2])){
+    name = compiled_names$`so.fibroblasts$cell_name`[i]
+    compiled_names$name[i] = name
+  }
+}
+
+compiled_names <- compiled_names[order(compiled_names$number), ]
+so <- AddMetaData(so, metadata = compiled_names$name, col.name = 'compiled_names')
+
+sample_levels <- c('Smooth muscle cells','Endothelial cells / Pericytes','Endothelial cells (Arterial)','Endothelial cells (Venous / Capillary)','Choroid plexus epithelial cells','Ependymal cells','Dural border cells','Inner arachnoid cells','Arachnoid barrier cells','Parenchymal perivascular fibroblasts','Pial fibroblasts','Olfactory ensheathing cells','Oligodendrocytes','Astrocytes','Bergmann glia','Neural IPCs','Neurons','Microglia','Unknown')
+so$compiled_names <- factor(x = so$compiled_names, levels = sample_levels)
+
+# Update visualizations for updated annotation
+pdf("2023.11.28_DimPlot_AK_10332_10339.pdf", width = 11, height = 8)
+DimPlot(subset(so, cell_type != 'Unknown'), group.by = 'compiled_names')
+DimPlot(subset(so, cell_type != 'Unknown'), group.by = 'compiled_names', label = T)
+
+pdf("2023.11.28_DotPlot_markers_AK_10332_10339.pdf", height = 8, width = 15)
+DotPlot(so, group.by = 'compiled_names', features = c('Acta2','Mustn1','Tagln','Myh11','Ly6c1','Cldn5','Ly6a','Pltp','Flt1','Degs2','Kcnj8','Higd1b','Rgs5','Hey1','Bmx','Sema3g','Slc16a2','Car4','Mfsd2a','Icam1','Slc38a5','Vwf','Ttr','Folr1','Clicb','Kl','Ccdc153','Tmem212','Hdc','Dynlrb2')) + 
+        scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1") + theme(axis.text.x = element_text(angle = 90))
+DotPlot(so, group.by = 'compiled_names', features = c('Prss56','Clca3a1','Fabp7','Frzb','Opalin','Ninj2','Mal','Mog','Hapln2','Docks','Anln','Gjb1','Fam107a','Cbs','Mlc1','Ntsr2','Slc7a11','Fgfr3','Agt','Slc6a11','Gldc','Slc13a3','Islr','Gdf10','Timp4','Hopx','Id4','2810417H13Rik','Cdca7','Rrm2','Ube2c','Top2a','Birc5','Map2','NeuN','Snap25','Slc17a7','Gad2','Reln','Itgam','Trem2')) + 
+        scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1")  + theme(axis.text.x = element_text(angle = 90))
+DotPlot(so, group.by = 'compiled_names', features = c('Slc47a1','Col1a1','Dpp4','Ppp1r1a','Slc7a11','Lama1','Col15a1','Tcf21')) + 
+        scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1")  + theme(axis.text.x = element_text(angle = 90))
+
+# Write out cell proportions
+write.csv(table(so$compiled_names, so$orig.ident), "2023.11.28_CD11B-_cell_proportions.csv")
+
+# Save dataset
+saveRDS(so,"2023.11.28_so.combined_AK_10332_10339.RDS")

@@ -1,0 +1,213 @@
+# Purpose: analyze the CD11B+ cell populations
+
+# Import libraries
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+
+library(ggbeeswarm)
+library(ggprism)
+
+# Import datasets
+so.1.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0001_S1_L005_results/filtered_matrix/sensitivity_5")
+so.1 <- CreateSeuratObject(counts = so.1.data, min.cells = 3, min.features = 200)
+so.1$orig.ident <- 'LUC1_CD11B_pos'
+rm(so.1.data)
+
+so.2.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0002_S1_L005_results/filtered_matrix/sensitivity_5")
+so.2 <- CreateSeuratObject(counts = so.2.data, min.cells = 3, min.features = 200)
+so.2$orig.ident <- 'LUC2_CD11B_pos'
+rm(so.2.data)
+
+so.3.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0003_S1_L005_results/filtered_matrix/sensitivity_5")
+so.3 <- CreateSeuratObject(counts = so.3.data, min.cells = 3, min.features = 200)
+so.3$orig.ident <- 'LUC3_CD11B_pos'
+rm(so.3.data)
+
+so.4.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0004_S1_L005_results/filtered_matrix/sensitivity_5")
+so.4 <- CreateSeuratObject(counts = so.4.data, min.cells = 3, min.features = 200)
+so.4$orig.ident <- 'PPIB1_CD11B_pos'
+rm(so.4.data)
+
+so.5.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0005_S1_L005_results/filtered_matrix/sensitivity_5")
+so.5 <- CreateSeuratObject(counts = so.5.data, min.cells = 3, min.features = 200)
+so.5$orig.ident <- 'PPIB2_CD11B_pos'
+rm(so.5.data)
+
+so.6.data <- Read10X("/data/lippmann_lab/10331-AK/10331-AK-0006_S1_L005_results/filtered_matrix/sensitivity_5")
+so.6 <- CreateSeuratObject(counts = so.6.data, min.cells = 3, min.features = 200)
+so.6$orig.ident <- 'PPIB3_CD11B_pos'
+rm(so.6.data)
+
+# Merge datasets
+so.combined <- merge(so.1, y = c(so.2, so.3, so.4, so.5, so.6))
+
+# Do initial filtering based on mitochondrial percentage and number of features
+so.combined[["percent.mt"]] <- PercentageFeatureSet(so.combined, pattern = "mt")
+so.combined <- subset(so.combined, subset = nFeature_RNA > 800 & nFeature_RNA < 4000)
+
+# Process data, do dimension reduction
+so.combined <- NormalizeData(so.combined)
+so.combined <- FindVariableFeatures(so.combined, selection.method = "vst", nfeatures = 2000)
+so.combined <- ScaleData(so.combined, verbose = FALSE)
+so.combined <- RunPCA(so.combined, npcs = 50, verbose = FALSE)
+so.combined <- RunUMAP(so.combined, reduction = "pca", dims = 1:50)
+so.combined <- FindNeighbors(so.combined, reduction = "pca", dims = 1:50)
+so.combined <- FindClusters(so.combined, resolution = 1)
+
+# Mark which siRNA was used
+so.combined$siRNA <- so.combined$orig.ident
+so.combined$siRNA <- recode(so.combined$siRNA,
+                            "LUC1_CD11B_pos" = "LUC",
+                            "LUC2_CD11B_pos" = "LUC",
+                            "LUC3_CD11B_pos" = "LUC",
+                            "PPIB1_CD11B_pos" = "PPIB",
+                            "PPIB2_CD11B_pos" = "PPIB",
+                            "PPIB3_CD11B_pos" = "PPIB")
+
+# Categorize cell types
+so.combined$cell_type <- so.combined$seurat_clusters
+so.combined$cell_type <- recode(so.combined$cell_type,
+                                "0" = "Microglia 1",
+                                "1" = "Microglia 1",
+                                "2" = "Microglia 1",
+                                "3" = "Microglia 1",
+                                "4" = "Microglia 1",
+                                "5" = "Microglia 2",
+                                "6" = "Macrophage",
+                                "7" = "Microglia 1",
+                                "8" = "Microglia 1",
+                                "9" = "unknown",
+                                "10" = "Microglia 1")
+
+# Save dataset
+saveRDS(so.combined, "2024.01.23_AK_10331_so.combined.RDS")
+
+# Visualize 
+pdf("2024.01.23_DimPlot_10331.pdf", width = 5, height = 4)
+DimPlot(subset(so.combined, cell_type != 'unknown'))
+DimPlot(subset(so.combined, cell_type != 'unknown'), group.by = 'siRNA', cols = c('gray','black')) + ggtitle('')
+DimPlot(subset(so.combined, cell_type != 'unknown'), group.by = 'cell_type', cols = c('goldenrod','purple','darkgreen')) + ggtitle('')
+
+pdf("2024.01.23_DotPlot_cell_type_markers_10331.pdf", width = 14, height = 3.5)
+DotPlot(subset(so.combined, cell_type != 'unknown'), group.by = 'cell_type', features = c('Crybb1','Cst3','P2ry12','Pros1','Tmem119','Apoe','Spp1','Lpl','Lyz2','Pf4','Ms4a7','Ccl24','F13a1','Ms4a6','Mrc1','Lyve1')) + scale_colour_gradient2(low="steelblue", mid="lightgrey", high="darkgoldenrod1")
+
+pdf("2024.01.23_PPIB_average_expression_10331.pdf", width = 3, height = 4)
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Macrophage'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','deepskyblue4')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Macrophage') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2024.01.23_Macrophage_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Microglia 1'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','cyan4')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Microglia 1') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2024.01.23_Microglia 1_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type == 'Microglia 2'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','cyan3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Microglia 2') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2024.01.23_Microglia 2_levels.csv")
+
+so.combined <- FindClusters(so.combined, resolution = 5)
+
+# Pull out macrophage cells and recluster
+so.mac <- subset(so.combined, cell_type == 'Macrophage' & seurat_clusters %in% c('12','21'))
+DimPlot(so.mac, label = T)
+
+so.mac$cell_type <- so.mac$seurat_clusters
+so.mac$cell_type <- recode(so.mac$cell_type,
+                            "12" = "MHC+",
+                            "21" = "Lyve1+")
+
+# Visualize and return average expression of PPIB
+pdf("2024.01.23_PMB_markers_FeaturePlot_macs_recluster.pdf", width = 12, height = 8)
+VlnPlot(so.mac, features = c('Cd163','Cd38','Lyve1','Msr1','Cd36','H2-Ab1','Cd74','Cd83','Cd14','Nlrp3','Mrc1','Ms4a7'))
+
+pdf("2024.01.23_so.macs_DimPlot.pdf")
+DimPlot(so.mac)
+DimPlot(so.mac, group.by = 'cell_type')
+
+pdf("2024.01.23_PPIB_average_expression_10331_macs.pdf", width = 3, height = 4)
+PPIB_levels <- AverageExpression(subset(so.mac, cell_type == 'MHC+'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('MHC+') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2024.01.23_MHC+_Macrophage_levels.csv")
+
+PPIB_levels <- AverageExpression(subset(so.mac, cell_type == 'Lyve1+'), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+ggplot(df, aes(x = siRNA, y = `as.vector(PPIB_levels$RNA)`)) +
+  geom_boxplot(aes(fill = siRNA)) +
+  scale_fill_manual(values = c('gray','darkgoldenrod3')) + 
+  geom_beeswarm(size = 2.5, cex = 2) + 
+  ylab('Average PPIB level') +
+  ylim(c(0,5)) +
+  ggtitle('Lyve1+') +
+  theme_prism() + 
+  theme(plot.title = element_text(hjust = 0, face = 'italic')) + 
+  NoLegend()
+colnames(df) <- c('Average PPIB level','siRNA')
+write.csv(df, "2024.01.23_Lyve1+_Macrophage_levels.csv")
+
+saveRDS(so.mac, "2024.01.23_so.macs.RDS")
+
+# Get full dataset knockdown rate
+PPIB_levels <- AverageExpression(so.combined, group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+write.csv(df, "2024.01.23_CD11B+_unknown_included.csv")
+
+PPIB_levels <- AverageExpression(subset(so.combined, cell_type %in% c('Microglia 1','Microglia 2','Macrophage')), group.by = "orig.ident", features = 'Ppib')
+df <- as.data.frame(as.vector(PPIB_levels$RNA))
+df$siRNA <- as.factor(c('LUC','LUC','LUC','PPIB','PPIB','PPIB'))
+write.csv(df, "2024.01.23_CD11B+_unknown_excluded.csv")
+
+# Write out cell numbers per sample and cell type
+write.csv(table(so.combined$cell_type, so.combined$orig.ident), "2024.01.23_CD11B+_cell_proportions.csv")
+
+write.csv(table(so.mac$cell_type, so.mac$orig.ident),
+"2024.01.23_mac_cell_proportions.csv")
