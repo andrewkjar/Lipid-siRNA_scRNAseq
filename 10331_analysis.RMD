@@ -4,6 +4,7 @@
 # In the following code, file paths have been replaced with ~
 # Be sure to substitute for true file locations before running
 # The raw FASTQ files used in this analysis are located at E-MTAB-13964
+# Note that the processed Seurat object is also available at E-MTAB-13964 and can be used for visualizations without re-running alignment, quality control, and annotation steps
 ~/pipseeker full --fastq 10331-AK-0001_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10331-AK-0001_S1_L005_results
 ~/pipseeker full --fastq 10331-AK-0002_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10331-AK-0002_S1_L005_results
 ~/pipseeker full --fastq 10331-AK-0003_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10331-AK-0003_S1_L005_results
@@ -93,7 +94,8 @@ so.combined$cell_type <- recode(so.combined$cell_type,
                                 "10" = "Microglia 1")
 
 # Save dataset
-saveRDS(so.combined, "2024.01.23_AK_10331_so.combined.RDS")
+saveRDS(so.combined, "10331_so.combined.RDS")
+# This file is available at E-MTAB-13964
 
 # Visualize 
 pdf("2024.01.23_DimPlot_10331.pdf", width = 5, height = 4)
