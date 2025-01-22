@@ -127,10 +127,6 @@ so.combined$cell_type <- recode(so.combined$cell_type,
 sample_levels <- c('Smooth muscle cells','Endothelial cells / Pericytes','Endothelial cells (Arterial)','Endothelial cells (Venous / Capillary)','Choroid plexus epithelial cells','Ependymal cells','Fibroblasts (Dural)','Fibroblasts (Arachnoid)','Olfactory ensheathing cells','Oligodendrocytes','Astrocytes','Bergmann glia','Neural IPCs','Neurons','Microglia','Unknown')
 so.combined$cell_type <- factor(x = so.combined$cell_type, levels = sample_levels)
 
-# Save RDS
-saveRDS(so.combined, "10332_10339_so.combined.RDS")
-# This file is available at E-MTAB-13964, and visualizations can be run directly
-
 # Visualize cell markers, dimension reduction, and PPIB levels
 pdf("2023.08.31_DotPlot_markers_AK_10332_10339.pdf", height = 8, width = 15)
 DotPlot(so.combined, group.by = 'cell_type', features = c('Acta2','Mustn1','Tagln','Myh11','Ly6c1','Cldn5','Ly6a','Pltp','Flt1','Degs2','Kcnj8','Higd1b','Rgs5','Hey1','Bmx','Sema3g','Slc16a2','Car4','Mfsd2a','Icam1','Slc38a5','Vwf','Ttr','Folr1','Clicb','Kl','Ccdc153','Tmem212','Hdc','Dynlrb2','Dcn','Col1a1','Pdgfrb','Crabp2','Fxyd5','Foxp1','Six1','S100a6','Ngfr','Aldh1a2','SLc6a13')) + 
@@ -764,5 +760,6 @@ DotPlot(so, group.by = 'compiled_names', features = c('Slc47a1','Col1a1','Dpp4',
 # Write out cell proportions
 write.csv(table(so$compiled_names, so$orig.ident), "2023.11.28_CD11B-_cell_proportions.csv")
 
-# Save dataset
-saveRDS(so,"2023.11.28_so.combined_AK_10332_10339.RDS")
+# Save RDS
+saveRDS(so.combined, "10332_10339_so.combined.RDS")
+# This file is available at E-MTAB-13964, and visualizations can be run directly
