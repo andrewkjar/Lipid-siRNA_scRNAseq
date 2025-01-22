@@ -4,6 +4,7 @@ Purpose: import and construct Seurat objects for CD11b- cells
 # In the following code, file paths have been replaced with ~
 # Be sure to substitute for true file locations before running
 # The raw FASTQ files used in this analysis are located at E-MTAB-13964
+# Note that the processed Seurat object is also available at E-MTAB-13964 and can be used for visualizations without re-running alignment, quality control, and annotation steps
 ~/pipseeker full --fastq 10339-AK-0001_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10339-AK-0001_S1_L005_results
 ~/pipseeker full --fastq 10332-AK-0002_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0002_S1_L005_results
 ~/pipseeker full --fastq 10332-AK-0003_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0003_S1_L005_results
@@ -127,7 +128,8 @@ sample_levels <- c('Smooth muscle cells','Endothelial cells / Pericytes','Endoth
 so.combined$cell_type <- factor(x = so.combined$cell_type, levels = sample_levels)
 
 # Save RDS
-saveRDS(so.combined, "2023.08.31_so.combined_AK_10332_10339.RDS")
+saveRDS(so.combined, "10332_10339_so.combined.RDS")
+# This file is available at E-MTAB-13964, and visualizations can be run directly
 
 # Visualize cell markers, dimension reduction, and PPIB levels
 pdf("2023.08.31_DotPlot_markers_AK_10332_10339.pdf", height = 8, width = 15)
