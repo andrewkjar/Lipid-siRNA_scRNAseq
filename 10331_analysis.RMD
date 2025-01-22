@@ -223,5 +223,4 @@ write.csv(df, "2024.01.23_CD11B+_unknown_excluded.csv")
 # Write out cell numbers per sample and cell type
 write.csv(table(so.combined$cell_type, so.combined$orig.ident), "2024.01.23_CD11B+_cell_proportions.csv")
 
-write.csv(table(so.mac$cell_type, so.mac$orig.ident),
-"2024.01.23_mac_cell_proportions.csv")
+write.csv(table(so.mac$cell_type, so.mac$orig.ident),"2024.01.23_mac_cell_proportions.csv")
