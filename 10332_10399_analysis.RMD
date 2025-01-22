@@ -15,11 +15,11 @@ Purpose: import and construct Seurat objects for CD11b- cells
 library(Seurat)
 library(ggplot2)
 library(dplyr)
-
 library(ggbeeswarm)
 library(ggprism)
 
 # Import data
+# File path points to outputs of the PIPSEEKER algorithm
 so.1.data <- Read10X("/data/lippmann_lab/10399-AK/10399-AK-0001_S1_L005_results/filtered_matrix/sensitivity_5")
 so.1 <- CreateSeuratObject(counts = so.1.data, min.cells = 3, min.features = 200)
 so.1$orig.ident <- 'LUC1_CD11B_neg'
