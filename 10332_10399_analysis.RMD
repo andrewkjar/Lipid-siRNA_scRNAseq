@@ -1,5 +1,16 @@
 Purpose: import and construct Seurat objects for CD11b- cells
 
+# RUN PIPSEEKER ALIGNMENT AT COMPUTE CLUSTER, WRITTEN IN LINUX COMMAND LINE
+# In the following code, file paths have been replaced with ~
+# Be sure to substitute for true file locations before running
+# The raw FASTQ files used in this analysis are located at E-MTAB-13964
+~/pipseeker full --fastq 10339-AK-0001_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10339-AK-0001_S1_L005_results
+~/pipseeker full --fastq 10332-AK-0002_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0002_S1_L005_results
+~/pipseeker full --fastq 10332-AK-0003_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0003_S1_L005_results
+~/pipseeker full --fastq 10332-AK-0004_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0004_S1_L005_results
+~/pipseeker full --fastq 10332-AK-0005_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0005_S1_L005_results
+~/pipseeker full --fastq 10332-AK-0006_S1_L005_ --star-index-path ~/pipseeker-gex-reference-GRCm39-2022.04 --output-path 10332-AK-0006_S1_L005_results
+
 # Import libraries
 library(Seurat)
 library(ggplot2)
@@ -9,7 +20,7 @@ library(ggbeeswarm)
 library(ggprism)
 
 # Import data
-so.1.data <- Read10X("/data/lippmann_lab/10399-AK/10399-AK-1_S1_L005_results/filtered_matrix/sensitivity_5")
+so.1.data <- Read10X("/data/lippmann_lab/10399-AK/10399-AK-0001_S1_L005_results/filtered_matrix/sensitivity_5")
 so.1 <- CreateSeuratObject(counts = so.1.data, min.cells = 3, min.features = 200)
 so.1$orig.ident <- 'LUC1_CD11B_neg'
 rm(so.1.data)
